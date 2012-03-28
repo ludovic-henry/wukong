@@ -66,7 +66,7 @@ module Wukong
   class Script
     include Wukong::HadoopCommand
     include Wukong::LocalCommand
-    attr_reader :mapper, :reducer, :options
+    attr_reader :mapper, :reducer, :combiner, :options
     attr_reader :input_paths, :output_path
 
     # ---------------------------------------------------------------------------
@@ -92,9 +92,11 @@ module Wukong
     Settings.define :default_run_mode,   :default => 'hadoop', :description => 'Run mode: local, hadoop, emr (elastic mapreduce)', :wukong => true, :hide_help => false
     Settings.define :map_command,                              :description => "shell command to run as mapper, in place of this wukong script", :wukong => true
     Settings.define :reduce_command,                           :description => "shell command to run as reducer, in place of this wukong script", :wukong => true
+    Settings.define :combine_command,                          :description => "shell command to run as combiner, in place of this wukong script", :wukong => true
     Settings.define :run,      :env_var => 'WUKONG_RUN_MODE',    :description => "run the script's workflow: Specify 'hadoop' to use hadoop streaming; 'local' to run your_script.rb --map | sort | your_script.rb --reduce; 'emr' to launch on the amazon cloud; 'map' or 'reduce' to run that phase.", :wukong => true
     Settings.define :map,                                      :description => "run the script's map phase. Reads/writes to STDIN/STDOUT.", :wukong => true
     Settings.define :reduce,                                   :description => "run the script's reduce phase. Reads/writes to STDIN/STDOUT. You can only choose one of --run, --map or --reduce.", :wukong => true
+    Settings.define :combine,                                  :description => "run the script's combine phase. Reads/writes to STDIN/STDOUT", :wukong => true
     Settings.define :dry_run,                                  :description => "echo the command that will be run, but don't run it", :wukong => true
     Settings.define :rm,                                       :description => "Recursively remove the destination directory. Only used in hadoop mode.", :wukong => true
 
@@ -125,15 +127,16 @@ module Wukong
     #   end
     #   MyScript.new(MyMapper, nil).run
     #
-    def initialize mapper, reducer=nil, extra_options={}
+    def initialize mapper, reducer=nil, combiner=nil, extra_options={}
       Settings.resolve!
       @options = Settings
       options.merge! extra_options
       @mapper  = (case mapper  when Class then mapper.new  when nil then nil else mapper  ; end)
       @reducer = (case reducer when Class then reducer.new when nil then nil else reducer ; end)
+      @combiner = (case combiner when Class then combiner.new when nil then nil else combiner ; end)
       @output_path = options.rest.pop
       @input_paths = options.rest.reject(&:blank?)
-      if (input_paths.blank? || output_path.blank?) && (not options[:dry_run]) && (not ['map', 'reduce'].include?(run_mode))
+      if (input_paths.blank? || output_path.blank?) && (not options[:dry_run]) && (not ['map', 'reduce', 'combine'].include?(run_mode))
         raise "You need to specify a parsed input directory and a directory for output. Got #{ARGV.inspect}"
       end
     end
@@ -147,6 +150,7 @@ module Wukong
       case run_mode
       when 'map'              then mapper.stream
       when 'reduce'           then reducer.stream
+      when 'combine'          then combiner.stream
       when 'local'            then execute_local_workflow
       when 'cassandra'        then execute_hadoop_workflow
       when 'hadoop', 'mapred' then execute_hadoop_workflow
@@ -162,8 +166,10 @@ module Wukong
       case
       when options[:map]           then 'map'
       when options[:reduce]        then 'reduce'
+      when options[:combine]       then 'combine'
       when ($0 =~ /-mapper\.rb$/)  then 'map'
       when ($0 =~ /-reducer\.rb$/) then 'reduce'
+      when ($0 =~ /-combiner\.rb$/) then 'combine'
       when (options[:run] == true) then options[:default_run_mode]
       else                         options[:run].to_s
       end
@@ -202,6 +208,24 @@ module Wukong
         end
       else
         options[:reduce_command]
+      end
+    end
+
+    #
+    # Shell command for combine phase. By default, calls the script in --combine mode
+    # In hadoop mode, this is given to the hadoop streaming command.
+    # In local mode, it's given to the system() call
+    #
+    def combiner_commandline(run_option=:local)
+      if combiner
+        case run_option
+        when :local then
+          "#{ruby_interpreter_path} #{this_script_filename} --combine " + non_wukong_params
+        when :hadoop then
+          "#{ruby_interpreter_path} #{File.basename(this_script_filename)} --combine " + non_wukong_params
+        end
+      else
+        options[:combine_command]
       end
     end
 

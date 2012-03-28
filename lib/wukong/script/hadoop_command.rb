@@ -69,6 +69,7 @@ module Wukong
         hadoop_other_args,
         "-mapper  '#{mapper_commandline(:hadoop)}'",
         "-reducer '#{reducer_commandline(:hadoop)}'",
+        "-combiner '#{combiner_commandline(:hadoop)}'",
         "-input   '#{input_paths}'",
         "-output  '#{output_path}'",
         "-file    '#{this_script_filename}'",
