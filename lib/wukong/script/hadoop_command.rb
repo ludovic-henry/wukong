@@ -30,7 +30,7 @@ module Wukong
     Settings.define :max_reduce_attempts,    :jobconf => true, :description => 'mapred.reduce.max.attempts',                             :wukong => true
     Settings.define :min_split_size,         :jobconf => true, :description => 'mapred.min.split.size',                                  :wukong => true
     Settings.define :output_field_separator, :jobconf => true, :description => 'stream.map.output.field.separator',                      :wukong => true
-    Settings.define :partition_fields,       :jobconf => true, :description => 'num.key.fields.for.partition',                           :wukong => true
+    Settings.define :partition_fields,       :jobconf => true, :description => 'mapred.text.key.partitioner.options',                    :wukong => true
     Settings.define :reduce_tasks,           :jobconf => true, :description => 'mapred.reduce.tasks',                                    :wukong => true
     Settings.define :respect_exit_status,    :jobconf => true, :description => 'stream.non.zero.exit.is.failure',                        :wukong => true
     Settings.define :reuse_jvms,             :jobconf => true, :description => 'mapred.job.reuse.jvm.num.tasks',                         :wukong => true
