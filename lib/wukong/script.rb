@@ -277,7 +277,7 @@ module Wukong
     def non_wukong_params
       options.
         reject{|param, val| options.definition_of(param, :wukong) }.
-        map{|param,val| "--#{param}=#{val}" }.
+        map{|param,val| "--#{param}=#{val.inspect}" }.
         join(" ")
     end
 
